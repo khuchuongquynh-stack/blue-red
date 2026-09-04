@@ -1,0 +1,828 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Xanh biển vs Đỏ · Đuổi bắt</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background: #0b1a2f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #152433;
+            display: flex;
+            flex-direction: column;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #152433;
+            cursor: crosshair;
+            flex: 1;
+        }
+        .status-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            background: rgba(15, 30, 47, 0.92);
+            padding: 12px 24px;
+            border-radius: 60px;
+            color: #d0e6ff;
+            font-weight: 600;
+            text-shadow: 0 2px 2px #00000066;
+            gap: 12px 20px;
+            backdrop-filter: blur(8px);
+            border: 1px solid #3b5a7a;
+            pointer-events: none;
+            z-index: 10;
+            min-width: 60%;
+            max-width: 95%;
+        }
+        .status-panel button {
+            pointer-events: auto;
+        }
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 6px 12px;
+            flex-wrap: wrap;
+        }
+        .stat span {
+            background: #1e3550;
+            padding: 2px 14px;
+            border-radius: 40px;
+            font-size: 1.0rem;
+            letter-spacing: 0.3px;
+            color: #b2d9ff;
+        }
+        .hp-bar, .st-bar {
+            display: inline-block;
+            width: 100px;
+            height: 14px;
+            background: #2a405b;
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px #00000080;
+        }
+        .hp-fill {
+            height: 100%;
+            width: 100%;
+            background: #30d158;
+            transition: width 0.2s;
+        }
+        .st-fill {
+            height: 100%;
+            width: 100%;
+            background: #4fc3f7;
+            transition: width 0.1s;
+        }
+        .cooldown-badge {
+            display: flex;
+            gap: 6px 14px;
+            flex-wrap: wrap;
+            background: #0a1a2b;
+            padding: 4px 16px;
+            border-radius: 40px;
+        }
+        .cooldown-badge div {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .key {
+            display: inline-block;
+            background: #2b4a66;
+            padding: 2px 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            color: #cbe2ff;
+            font-size: 0.8rem;
+            min-width: 20px;
+            text-align: center;
+        }
+        .btn-reset {
+            background: #d64f4f;
+            border: none;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+            padding: 5px 18px;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #7a2e2e;
+            transition: 0.07s;
+            pointer-events: auto;
+        }
+        .btn-reset:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+        #timerDisplay {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #ffd966;
+            min-width: 70px;
+            text-align: center;
+            background: #0a1a2b;
+            padding: 2px 16px;
+            border-radius: 40px;
+        }
+        #timerDisplay.warning {
+            color: #ff6b6b;
+            animation: blink 0.5s infinite alternate;
+        }
+        #timerDisplay.victory {
+            color: #4caf50;
+            animation: none;
+            background: #1a3a2a;
+        }
+        @keyframes blink {
+            from { opacity: 1; }
+            to { opacity: 0.3; }
+        }
+        .buff-indicator {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 215, 0, 0.2);
+            backdrop-filter: blur(4px);
+            border: 2px solid #ffd700;
+            padding: 6px 24px;
+            border-radius: 40px;
+            color: #ffd700;
+            font-weight: bold;
+            font-size: 1.2rem;
+            display: none;
+            z-index: 20;
+            text-shadow: 0 0 20px #ffd700;
+            animation: glow 1s infinite alternate;
+        }
+        @keyframes glow {
+            from { box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+            to { box-shadow: 0 0 30px rgba(255, 215, 0, 0.7); }
+        }
+        @media (max-width: 768px) {
+            .status-panel {
+                padding: 8px 14px;
+                gap: 6px 10px;
+                bottom: 10px;
+                min-width: 90%;
+                flex-wrap: wrap;
+            }
+            .stat span { font-size: 0.8rem; padding: 1px 10px; }
+            .hp-bar, .st-bar { width: 70px; height: 12px; }
+            .cooldown-badge { font-size: 0.7rem; padding: 2px 10px; }
+            #timerDisplay { font-size: 1.0rem; min-width: 50px; }
+        }
+    </style>
+</head>
+<body>
+<div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+    <div class="buff-indicator" id="buffIndicator">⚡ BUFF KÍCH HOẠT ⚡</div>
+    <div class="status-panel">
+        <div class="stat">
+            <span>❤️ HP</span>
+            <div class="hp-bar"><div class="hp-fill" id="hpFill" style="width:100%"></div></div>
+            <span id="hpText">100</span>
+        </div>
+        <div class="stat">
+            <span>⚡ ST</span>
+            <div class="st-bar"><div class="st-fill" id="stFill" style="width:100%"></div></div>
+            <span id="stText">100</span>
+        </div>
+        <div id="timerDisplay">1:30</div>
+        <div class="cooldown-badge">
+            <div><span class="key">E</span> <span id="teleCD">sẵn sàng</span></div>
+            <div><span class="key">F</span> <span id="cloneCD">sẵn sàng</span></div>
+        </div>
+        <button class="btn-reset" id="resetBtn">↺ Chơi lại</button>
+    </div>
+</div>
+
+<script>
+    (function() {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('gameContainer');
+
+        // DOM elements
+        const hpFill = document.getElementById('hpFill');
+        const stFill = document.getElementById('stFill');
+        const hpText = document.getElementById('hpText');
+        const stText = document.getElementById('stText');
+        const teleCD = document.getElementById('teleCD');
+        const cloneCD = document.getElementById('cloneCD');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const buffIndicator = document.getElementById('buffIndicator');
+
+        // Resize canvas
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Kích thước
+        let PLAYER_SIZE = 30;
+        let KILLER_SIZE = 34;
+        let CLONE_SIZE = 26;
+
+        // State
+        const state = {
+            player: { x: 0, y: 0, hp: 100, maxHp: 100, st: 100, maxSt: 100 },
+            killer: { x: 0, y: 0 },
+            clone: null,
+            teleCooldown: 0,
+            cloneCooldown: 0,
+            teleporting: false,
+            teleportTimer: 0,
+            isBuffed: false,
+            bleeding: false,
+            bleedingTimer: 0,
+            bleedingInterval: 0,
+            gameTime: 90,
+            isGameOver: false,
+            isVictory: false,
+            isPaused: false,
+            lastTimestamp: 0,
+        };
+
+        // Constants
+        const TELE_COOLDOWN_MS = 15000;
+        const CLONE_COOLDOWN_MS = 18000;
+        let TELE_CHANNEL_MS = 4000;
+        const STAMINA_DRAIN_PER_SEC = 28;
+        const STAMINA_REGEN_PER_SEC = 10;
+        let KILLER_SPEED = 120;
+        let PLAYER_SPEED = 130;
+        let PLAYER_SPRINT_SPEED = 240;
+        const CLONE_SPEED = 160;
+        const CLONE_MAX_HP = 50;
+        const CLONE_HIT_TO_DIE = 3;
+        let cloneDamagePerHit = Math.ceil(CLONE_MAX_HP / CLONE_HIT_TO_DIE);
+
+        const BUFF_PLAYER_HP = 150;
+        const BUFF_TELE_CHANNEL = 2000;
+        const BUFF_CLONE_HP = 100;
+        const BUFF_CLONE_HIT_TO_DIE = 4;
+        const BUFF_KILLER_BLEED_DURATION = 3;
+
+        // Input
+        const keys = { w: false, a: false, s: false, d: false, shift: false };
+        let keyEJustPressed = false;
+        let keyFJustPressed = false;
+        let mouseX = 0, mouseY = 0;
+
+        // Reset
+        function resetGame() {
+            const w = canvas.width;
+            const h = canvas.height;
+            state.player.x = w/2;
+            state.player.y = h/2;
+            state.player.hp = 100;
+            state.player.maxHp = 100;
+            state.player.st = 100;
+            state.player.maxSt = 100;
+            state.killer.x = w * 0.15;
+            state.killer.y = h * 0.15;
+            state.clone = null;
+            state.teleporting = false;
+            state.teleportTimer = 0;
+            state.teleCooldown = 0;
+            state.cloneCooldown = 0;
+            state.isBuffed = false;
+            state.bleeding = false;
+            state.bleedingTimer = 0;
+            state.bleedingInterval = 0;
+            state.gameTime = 90;
+            state.isGameOver = false;
+            state.isVictory = false;
+            state.isPaused = false;
+            state.lastTimestamp = 0;
+            TELE_CHANNEL_MS = 4000;
+            cloneDamagePerHit = Math.ceil(CLONE_MAX_HP / CLONE_HIT_TO_DIE);
+            
+            buffIndicator.style.display = 'none';
+            timerDisplay.classList.remove('warning');
+            timerDisplay.classList.remove('victory');
+            updateUI();
+            updateSizes();
+        }
+
+        function updateSizes() {
+            const w = canvas.width;
+            const h = canvas.height;
+            PLAYER_SIZE = Math.min(30, w * 0.04, h * 0.04);
+            KILLER_SIZE = Math.min(34, w * 0.045, h * 0.045);
+            CLONE_SIZE = Math.min(26, w * 0.035, h * 0.035);
+            PLAYER_SIZE = Math.max(20, PLAYER_SIZE);
+            KILLER_SIZE = Math.max(24, KILLER_SIZE);
+            CLONE_SIZE = Math.max(18, CLONE_SIZE);
+        }
+
+        function updateUI() {
+            const hp = Math.max(0, state.player.hp);
+            const st = Math.max(0, state.player.st);
+            hpFill.style.width = (hp / state.player.maxHp * 100) + '%';
+            stFill.style.width = (st / state.player.maxSt * 100) + '%';
+            hpText.textContent = Math.floor(hp);
+            stText.textContent = Math.floor(st);
+
+            if (state.teleCooldown > 0) {
+                teleCD.textContent = Math.ceil(state.teleCooldown / 1000) + 's';
+                teleCD.style.color = '#f7b267';
+            } else {
+                teleCD.textContent = '✓ sẵn sàng';
+                teleCD.style.color = '#8bc34a';
+            }
+
+            if (state.cloneCooldown > 0) {
+                cloneCD.textContent = Math.ceil(state.cloneCooldown / 1000) + 's';
+                cloneCD.style.color = '#f7b267';
+            } else {
+                cloneCD.textContent = '✓ sẵn sàng';
+                cloneCD.style.color = '#8bc34a';
+            }
+
+            const mins = Math.floor(Math.max(0, state.gameTime) / 60);
+            const secs = Math.floor(Math.max(0, state.gameTime) % 60);
+            timerDisplay.textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
+            
+            if (state.isVictory) {
+                timerDisplay.classList.remove('warning');
+                timerDisplay.classList.add('victory');
+            } else if (state.gameTime <= 10 && state.gameTime > 0) {
+                timerDisplay.classList.add('warning');
+                timerDisplay.classList.remove('victory');
+            } else {
+                timerDisplay.classList.remove('warning');
+                timerDisplay.classList.remove('victory');
+            }
+        }
+
+        function getRandomTeleportPosition() {
+            const margin = 60;
+            const w = canvas.width;
+            const h = canvas.height;
+            return {
+                x: Math.random() * (w - 2 * margin) + margin,
+                y: Math.random() * (h - 2 * margin) + margin
+            };
+        }
+
+        function applyBuff() {
+            if (state.isBuffed || state.isVictory || state.isGameOver) return;
+            state.isBuffed = true;
+            buffIndicator.style.display = 'block';
+
+            state.player.maxHp = BUFF_PLAYER_HP;
+            state.player.hp = Math.min(state.player.hp + 50, BUFF_PLAYER_HP);
+            TELE_CHANNEL_MS = BUFF_TELE_CHANNEL;
+            
+            if (state.clone && state.clone.hp > 0) {
+                state.clone.maxHp = BUFF_CLONE_HP;
+                state.clone.hp = BUFF_CLONE_HP;
+                cloneDamagePerHit = Math.ceil(BUFF_CLONE_HP / BUFF_CLONE_HIT_TO_DIE);
+            }
+            updateUI();
+        }
+
+        function tryTeleport() {
+            if (state.teleCooldown > 0 || state.teleporting || state.player.hp <= 0) return false;
+            if (state.isGameOver || state.isVictory || state.isPaused) return false;
+            state.teleporting = true;
+            state.teleportTimer = TELE_CHANNEL_MS;
+            return true;
+        }
+
+        function trySpawnClone() {
+            if (state.cloneCooldown > 0 || state.player.hp <= 0) return false;
+            if (state.isGameOver || state.isVictory || state.isPaused) return false;
+
+            if (state.clone && state.clone.hp > 0) {
+                state.clone = null;
+            }
+
+            const w = canvas.width, h = canvas.height;
+            const offset = 30;
+            const angle = Math.random() * 2 * Math.PI;
+            let cx = state.player.x + Math.cos(angle) * offset;
+            let cy = state.player.y + Math.sin(angle) * offset;
+            cx = Math.min(w - CLONE_SIZE/2, Math.max(CLONE_SIZE/2, cx));
+            cy = Math.min(h - CLONE_SIZE/2, Math.max(CLONE_SIZE/2, cy));
+
+            const cloneMaxHp = state.isBuffed ? BUFF_CLONE_HP : CLONE_MAX_HP;
+            state.clone = {
+                x: cx, y: cy,
+                hp: cloneMaxHp,
+                maxHp: cloneMaxHp,
+                active: true
+            };
+            cloneDamagePerHit = Math.ceil(cloneMaxHp / (state.isBuffed ? BUFF_CLONE_HIT_TO_DIE : CLONE_HIT_TO_DIE));
+            state.cloneCooldown = CLONE_COOLDOWN_MS;
+            updateUI();
+            return true;
+        }
+
+        function updateGame(deltaSec) {
+            if (state.isPaused) return;
+
+            const w = canvas.width, h = canvas.height;
+
+            state.gameTime -= deltaSec;
+            if (state.gameTime <= 0) {
+                state.gameTime = 0;
+                state.isVictory = true;
+                state.isPaused = true;
+                timerDisplay.classList.remove('warning');
+                timerDisplay.classList.add('victory');
+                updateUI();
+                return;
+            }
+
+            if (state.gameTime <= 10 && !state.isBuffed) {
+                applyBuff();
+            }
+
+            if (state.player.hp <= 0) {
+                state.isGameOver = true;
+                state.isPaused = true;
+                updateUI();
+                return;
+            }
+
+            if (!keys.shift) {
+                state.player.st = Math.min(state.player.maxSt, state.player.st + STAMINA_REGEN_PER_SEC * deltaSec);
+            }
+
+            let moveX = 0, moveY = 0;
+            if (keys.w) moveY -= 1;
+            if (keys.s) moveY += 1;
+            if (keys.a) moveX -= 1;
+            if (keys.d) moveX += 1;
+            
+            if (moveX !== 0 || moveY !== 0) {
+                const len = Math.hypot(moveX, moveY);
+                moveX /= len;
+                moveY /= len;
+
+                let speed = PLAYER_SPEED;
+                if (keys.shift && state.player.st > 0) {
+                    speed = PLAYER_SPRINT_SPEED;
+                    state.player.st = Math.max(0, state.player.st - STAMINA_DRAIN_PER_SEC * deltaSec);
+                }
+
+                state.player.x = Math.min(w - PLAYER_SIZE/2, Math.max(PLAYER_SIZE/2, state.player.x + moveX * speed * deltaSec));
+                state.player.y = Math.min(h - PLAYER_SIZE/2, Math.max(PLAYER_SIZE/2, state.player.y + moveY * speed * deltaSec));
+            }
+
+            if (state.teleporting) {
+                state.teleportTimer -= deltaSec * 1000;
+                if (state.teleportTimer <= 0) {
+                    const pos = getRandomTeleportPosition();
+                    state.player.x = pos.x;
+                    state.player.y = pos.y;
+                    state.teleporting = false;
+                    state.teleCooldown = TELE_COOLDOWN_MS;
+                    updateUI();
+                } else {
+                    const dist = Math.hypot(state.player.x - state.killer.x, state.player.y - state.killer.y);
+                    if (dist < (PLAYER_SIZE/2 + KILLER_SIZE/2)) {
+                        state.teleporting = false;
+                        state.teleportTimer = 0;
+                    }
+                }
+            }
+
+            if (state.teleCooldown > 0) {
+                state.teleCooldown = Math.max(0, state.teleCooldown - deltaSec * 1000);
+            }
+            if (state.cloneCooldown > 0) {
+                state.cloneCooldown = Math.max(0, state.cloneCooldown - deltaSec * 1000);
+            }
+
+            if (state.bleeding) {
+                state.bleedingTimer -= deltaSec;
+                state.bleedingInterval -= deltaSec;
+                if (state.bleedingInterval <= 0) {
+                    state.player.hp = Math.max(0, state.player.hp - 1);
+                    state.bleedingInterval = 1.0;
+                    updateUI();
+                    if (state.player.hp <= 0) {
+                        state.isGameOver = true;
+                        state.isPaused = true;
+                        updateUI();
+                        return;
+                    }
+                }
+                if (state.bleedingTimer <= 0) {
+                    state.bleeding = false;
+                    state.bleedingTimer = 0;
+                }
+            }
+
+            if (state.clone && state.clone.hp > 0) {
+                const dx = mouseX - state.clone.x;
+                const dy = mouseY - state.clone.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist > 2) {
+                    const step = Math.min(CLONE_SPEED * deltaSec, dist);
+                    state.clone.x += (dx / dist) * step;
+                    state.clone.y += (dy / dist) * step;
+                    state.clone.x = Math.min(w - CLONE_SIZE/2, Math.max(CLONE_SIZE/2, state.clone.x));
+                    state.clone.y = Math.min(h - CLONE_SIZE/2, Math.max(CLONE_SIZE/2, state.clone.y));
+                }
+            }
+
+            let targetX, targetY;
+            if (state.clone && state.clone.hp > 0) {
+                targetX = state.clone.x;
+                targetY = state.clone.y;
+            } else {
+                targetX = state.player.x;
+                targetY = state.player.y;
+            }
+
+            const dxK = targetX - state.killer.x;
+            const dyK = targetY - state.killer.y;
+            const distK = Math.hypot(dxK, dyK);
+            if (distK > 1) {
+                const step = Math.min(KILLER_SPEED * deltaSec, distK);
+                state.killer.x += (dxK / distK) * step;
+                state.killer.y += (dyK / distK) * step;
+                state.killer.x = Math.min(w - KILLER_SIZE/2, Math.max(KILLER_SIZE/2, state.killer.x));
+                state.killer.y = Math.min(h - KILLER_SIZE/2, Math.max(KILLER_SIZE/2, state.killer.y));
+            }
+
+            if (state.clone && state.clone.hp > 0) {
+                const dist = Math.hypot(state.killer.x - state.clone.x, state.killer.y - state.clone.y);
+                if (dist < (KILLER_SIZE/2 + CLONE_SIZE/2)) {
+                    state.clone.hp = Math.max(0, state.clone.hp - cloneDamagePerHit);
+                    const angle = Math.atan2(state.killer.y - state.clone.y, state.killer.x - state.clone.x);
+                    state.killer.x += Math.cos(angle) * 20;
+                    state.killer.y += Math.sin(angle) * 20;
+                    if (state.clone.hp <= 0) {
+                        state.clone = null;
+                    }
+                }
+            } else {
+                if (state.player.hp > 0) {
+                    const dist = Math.hypot(state.killer.x - state.player.x, state.killer.y - state.player.y);
+                    if (dist < (KILLER_SIZE/2 + PLAYER_SIZE/2)) {
+                        state.player.hp = Math.max(0, state.player.hp - 10);
+                        if (state.isBuffed && !state.bleeding) {
+                            state.bleeding = true;
+                            state.bleedingTimer = BUFF_KILLER_BLEED_DURATION;
+                            state.bleedingInterval = 1.0;
+                        }
+                        const angle = Math.atan2(state.killer.y - state.player.y, state.killer.x - state.player.x);
+                        state.killer.x += Math.cos(angle) * 25;
+                        state.killer.y += Math.sin(angle) * 25;
+                        updateUI();
+                        if (state.player.hp <= 0) {
+                            state.isGameOver = true;
+                            state.isPaused = true;
+                            updateUI();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            updateUI();
+        }
+
+        function draw() {
+            const w = canvas.width, h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            ctx.strokeStyle = '#2e4a66';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i < w; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, h);
+                ctx.stroke();
+            }
+            for (let i = 0; i < h; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(w, i);
+                ctx.stroke();
+            }
+
+            if (state.clone && state.clone.hp > 0) {
+                const hpPercent = state.clone.hp / state.clone.maxHp;
+                ctx.fillStyle = '#66ccff';
+                ctx.shadowColor = '#66ccff';
+                ctx.shadowBlur = 14;
+                ctx.fillRect(state.clone.x - CLONE_SIZE/2, state.clone.y - CLONE_SIZE/2, CLONE_SIZE, CLONE_SIZE);
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#ffffff';
+                ctx.font = `bold ${Math.max(11, CLONE_SIZE * 0.5)}px monospace`;
+                ctx.fillText('🔄' + Math.floor(state.clone.hp), state.clone.x - 20, state.clone.y - 20);
+                ctx.fillStyle = '#2a405b';
+                ctx.fillRect(state.clone.x - CLONE_SIZE/2, state.clone.y - CLONE_SIZE/2 - 6, CLONE_SIZE, 4);
+                ctx.fillStyle = hpPercent > 0.3 ? '#30d158' : '#ff6b6b';
+                ctx.fillRect(state.clone.x - CLONE_SIZE/2, state.clone.y - CLONE_SIZE/2 - 6, CLONE_SIZE * hpPercent, 4);
+            }
+
+            ctx.fillStyle = '#ff3b3b';
+            ctx.shadowColor = '#ff3b3b';
+            ctx.shadowBlur = 20;
+            ctx.fillRect(state.killer.x - KILLER_SIZE/2, state.killer.y - KILLER_SIZE/2, KILLER_SIZE, KILLER_SIZE);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffaaaa';
+            ctx.font = `bold ${Math.max(14, KILLER_SIZE * 0.5)}px sans-serif`;
+            ctx.fillText('☠', state.killer.x - KILLER_SIZE/2 + 4, state.killer.y + KILLER_SIZE/2 - 4);
+            if (state.isBuffed && !state.isVictory) {
+                ctx.fillStyle = '#ff6b6b';
+                ctx.font = '12px sans-serif';
+                ctx.fillText('🩸', state.killer.x - KILLER_SIZE/2 - 2, state.killer.y - KILLER_SIZE/2 - 4);
+            }
+
+            if (state.isVictory) {
+                ctx.shadowColor = '#4caf50';
+                ctx.shadowBlur = 30;
+                ctx.fillStyle = '#4caf50';
+            } else if (state.isGameOver) {
+                ctx.shadowColor = '#ff1744';
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#666';
+            } else {
+                ctx.shadowColor = '#3aa8ff';
+                ctx.shadowBlur = 22;
+                ctx.fillStyle = '#1e90ff';
+            }
+            ctx.fillRect(state.player.x - PLAYER_SIZE/2, state.player.y - PLAYER_SIZE/2, PLAYER_SIZE, PLAYER_SIZE);
+            ctx.shadowBlur = 0;
+
+            if (state.teleporting) {
+                const progress = 1 - (state.teleportTimer / TELE_CHANNEL_MS);
+                ctx.strokeStyle = '#ffd966';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([8, 8]);
+                ctx.beginPath();
+                ctx.arc(state.player.x, state.player.y, PLAYER_SIZE/2 + 14 + progress * 14, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#ffd966';
+                ctx.font = 'bold 20px sans-serif';
+                ctx.fillText('⏳', state.player.x - 34, state.player.y - 34);
+            }
+
+            if (state.bleeding && !state.isVictory && !state.isGameOver) {
+                ctx.fillStyle = '#ff1744';
+                ctx.font = 'bold 22px sans-serif';
+                ctx.fillText('🩸', state.player.x - PLAYER_SIZE/2 - 8, state.player.y - PLAYER_SIZE/2 - 8);
+            }
+
+            ctx.fillStyle = '#c0d9f0';
+            ctx.font = `bold ${Math.max(14, PLAYER_SIZE * 0.6)}px monospace`;
+            ctx.fillText('❤️ ' + Math.floor(state.player.hp) + '  ⚡ ' + Math.floor(state.player.st), 16, 36);
+
+            if (state.isBuffed && !state.isVictory) {
+                ctx.fillStyle = '#ffd700';
+                ctx.font = `bold ${Math.max(14, PLAYER_SIZE * 0.6)}px sans-serif`;
+                ctx.fillText('⚡ BUFF', w - 120, 36);
+            }
+
+            // GAME OVER - giống hệt như bạn yêu cầu
+            if (state.isGameOver && !state.isVictory) {
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = '#ff0000';
+                ctx.font = `bold ${Math.min(56, w * 0.07)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText('💀 GAME OVER', w/2, h/2 - 10);
+                ctx.textAlign = 'left';
+            }
+
+            // YOU WIN - giống hệt GAME OVER nhưng màu xanh và chữ khác
+            if (state.isVictory) {
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = '#4caf50';
+                ctx.font = `bold ${Math.min(56, w * 0.07)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText('🏆 YOU WIN', w/2, h/2 - 10);
+                ctx.textAlign = 'left';
+            }
+
+            ctx.fillStyle = state.isVictory ? '#4caf50' : (state.gameTime <= 10 ? '#ff6b6b' : '#ffd966');
+            ctx.font = `bold ${Math.max(20, w * 0.025)}px monospace`;
+            ctx.textAlign = 'right';
+            const mins = Math.floor(Math.max(0, state.gameTime) / 60);
+            const secs = Math.floor(Math.max(0, state.gameTime) % 60);
+            ctx.fillText((mins > 0 ? mins + ':' : '') + (secs < 10 ? '0' : '') + secs, w - 20, 36);
+            ctx.textAlign = 'left';
+        }
+
+        // Mouse tracking
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            mouseX = (e.clientX - rect.left) * scaleX;
+            mouseY = (e.clientY - rect.top) * scaleY;
+            mouseX = Math.min(canvas.width, Math.max(0, mouseX));
+            mouseY = Math.min(canvas.height, Math.max(0, mouseY));
+        });
+
+        // Game loop
+        function gameLoop(timestamp) {
+            if (!state.lastTimestamp) state.lastTimestamp = timestamp;
+            const deltaMs = Math.min(50, timestamp - state.lastTimestamp);
+            state.lastTimestamp = timestamp;
+            const deltaSec = deltaMs / 1000;
+
+            if (keyEJustPressed) {
+                tryTeleport();
+                keyEJustPressed = false;
+            }
+            if (keyFJustPressed) {
+                trySpawnClone();
+                keyFJustPressed = false;
+            }
+
+            updateGame(deltaSec);
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Keyboard
+        document.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
+                keys[key] = true;
+                e.preventDefault();
+            }
+            if (key === 'shift') {
+                keys.shift = true;
+                e.preventDefault();
+            }
+            if (key === 'e') {
+                if (!keyEJustPressed) {
+                    keyEJustPressed = true;
+                }
+                e.preventDefault();
+            }
+            if (key === 'f') {
+                if (!keyFJustPressed) {
+                    keyFJustPressed = true;
+                }
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
+                keys[key] = false;
+                e.preventDefault();
+            }
+            if (key === 'shift') {
+                keys.shift = false;
+                e.preventDefault();
+            }
+            if (key === 'e' || key === 'f') {
+                e.preventDefault();
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', resetGame);
+
+        // Khởi động
+        resetGame();
+        requestAnimationFrame(gameLoop);
+    })();
+</script>
+</body>
+</html>
