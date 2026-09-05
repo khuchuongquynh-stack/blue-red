@@ -272,6 +272,7 @@
             isVictory: false,
             isPaused: false,
             lastTimestamp: 0,
+            cloneLastHitTime: 0,
         };
 
         // Constants
@@ -287,6 +288,7 @@
         const CLONE_MAX_HP = 50;
         const CLONE_HIT_TO_DIE = 3;
         let cloneDamagePerHit = Math.ceil(CLONE_MAX_HP / CLONE_HIT_TO_DIE);
+        const CLONE_LIFETIME = 10;
 
         const BUFF_PLAYER_HP = 150;
         const BUFF_TELE_CHANNEL = 2000;
@@ -326,6 +328,7 @@
             state.isVictory = false;
             state.isPaused = false;
             state.lastTimestamp = 0;
+            state.cloneLastHitTime = 0;
             TELE_CHANNEL_MS = 4000;
             cloneDamagePerHit = Math.ceil(CLONE_MAX_HP / CLONE_HIT_TO_DIE);
             
@@ -445,6 +448,7 @@
                 maxHp: cloneMaxHp,
                 active: true
             };
+            state.cloneLastHitTime = state.gameTime;
             cloneDamagePerHit = Math.ceil(cloneMaxHp / (state.isBuffed ? BUFF_CLONE_HIT_TO_DIE : CLONE_HIT_TO_DIE));
             state.cloneCooldown = CLONE_COOLDOWN_MS;
             updateUI();
@@ -476,6 +480,17 @@
                 state.isPaused = true;
                 updateUI();
                 return;
+            }
+
+            // Clone tự chết sau 10s không bị đánh
+            if (state.clone && state.clone.hp > 0) {
+                if (state.cloneLastHitTime > 0) {
+                    const timeSinceLastHit = state.gameTime - state.cloneLastHitTime;
+                    if (timeSinceLastHit >= CLONE_LIFETIME) {
+                        state.clone.hp = 0;
+                        state.clone = null;
+                    }
+                }
             }
 
             if (!keys.shift) {
@@ -585,6 +600,7 @@
                 const dist = Math.hypot(state.killer.x - state.clone.x, state.killer.y - state.clone.y);
                 if (dist < (KILLER_SIZE/2 + CLONE_SIZE/2)) {
                     state.clone.hp = Math.max(0, state.clone.hp - cloneDamagePerHit);
+                    state.cloneLastHitTime = state.gameTime;
                     const angle = Math.atan2(state.killer.y - state.clone.y, state.killer.x - state.clone.x);
                     state.killer.x += Math.cos(angle) * 20;
                     state.killer.y += Math.sin(angle) * 20;
@@ -647,7 +663,11 @@
                 ctx.shadowBlur = 0;
                 ctx.fillStyle = '#ffffff';
                 ctx.font = `bold ${Math.max(11, CLONE_SIZE * 0.5)}px monospace`;
-                ctx.fillText('🔄' + Math.floor(state.clone.hp), state.clone.x - 20, state.clone.y - 20);
+                if (state.cloneLastHitTime > 0 && state.clone.hp > 0) {
+                    const timeLeft = Math.max(0, CLONE_LIFETIME - (state.gameTime - state.cloneLastHitTime));
+                    ctx.fillText('⏱' + Math.ceil(timeLeft) + 's', state.clone.x - 22, state.clone.y - 20);
+                }
+                ctx.fillText('🔄' + Math.floor(state.clone.hp), state.clone.x - 20, state.clone.y + 20);
                 ctx.fillStyle = '#2a405b';
                 ctx.fillRect(state.clone.x - CLONE_SIZE/2, state.clone.y - CLONE_SIZE/2 - 6, CLONE_SIZE, 4);
                 ctx.fillStyle = hpPercent > 0.3 ? '#30d158' : '#ff6b6b';
@@ -714,7 +734,6 @@
                 ctx.fillText('⚡ BUFF', w - 120, 36);
             }
 
-            // GAME OVER - giống hệt như bạn yêu cầu
             if (state.isGameOver && !state.isVictory) {
                 ctx.fillStyle = 'rgba(0,0,0,0.6)';
                 ctx.fillRect(0, 0, w, h);
@@ -725,7 +744,6 @@
                 ctx.textAlign = 'left';
             }
 
-            // YOU WIN - giống hệt GAME OVER nhưng màu xanh và chữ khác
             if (state.isVictory) {
                 ctx.fillStyle = 'rgba(0,0,0,0.6)';
                 ctx.fillRect(0, 0, w, h);
