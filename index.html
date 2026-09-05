@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -230,7 +230,6 @@
         const ctx = canvas.getContext('2d');
         const container = document.getElementById('gameContainer');
 
-        // DOM elements
         const hpFill = document.getElementById('hpFill');
         const stFill = document.getElementById('stFill');
         const hpText = document.getElementById('hpText');
@@ -240,7 +239,6 @@
         const timerDisplay = document.getElementById('timerDisplay');
         const buffIndicator = document.getElementById('buffIndicator');
 
-        // Resize canvas
         function resizeCanvas() {
             const rect = container.getBoundingClientRect();
             canvas.width = rect.width;
@@ -249,12 +247,10 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // Kích thước
         let PLAYER_SIZE = 30;
         let KILLER_SIZE = 34;
         let CLONE_SIZE = 26;
 
-        // State
         const state = {
             player: { x: 0, y: 0, hp: 100, maxHp: 100, st: 100, maxSt: 100 },
             killer: { x: 0, y: 0 },
@@ -272,10 +268,9 @@
             isVictory: false,
             isPaused: false,
             lastTimestamp: 0,
-            cloneLastHitTime: 0,
+            cloneTimer: 0, // Đếm ngược 10s cho clone
         };
 
-        // Constants
         const TELE_COOLDOWN_MS = 15000;
         const CLONE_COOLDOWN_MS = 18000;
         let TELE_CHANNEL_MS = 4000;
@@ -296,13 +291,11 @@
         const BUFF_CLONE_HIT_TO_DIE = 4;
         const BUFF_KILLER_BLEED_DURATION = 3;
 
-        // Input
         const keys = { w: false, a: false, s: false, d: false, shift: false };
         let keyEJustPressed = false;
         let keyFJustPressed = false;
         let mouseX = 0, mouseY = 0;
 
-        // Reset
         function resetGame() {
             const w = canvas.width;
             const h = canvas.height;
@@ -328,7 +321,7 @@
             state.isVictory = false;
             state.isPaused = false;
             state.lastTimestamp = 0;
-            state.cloneLastHitTime = 0;
+            state.cloneTimer = 0;
             TELE_CHANNEL_MS = 4000;
             cloneDamagePerHit = Math.ceil(CLONE_MAX_HP / CLONE_HIT_TO_DIE);
             
@@ -448,7 +441,7 @@
                 maxHp: cloneMaxHp,
                 active: true
             };
-            state.cloneLastHitTime = state.gameTime;
+            state.cloneTimer = CLONE_LIFETIME; // Bắt đầu đếm ngược 10s
             cloneDamagePerHit = Math.ceil(cloneMaxHp / (state.isBuffed ? BUFF_CLONE_HIT_TO_DIE : CLONE_HIT_TO_DIE));
             state.cloneCooldown = CLONE_COOLDOWN_MS;
             updateUI();
@@ -482,14 +475,12 @@
                 return;
             }
 
-            // Clone tự chết sau 10s không bị đánh
+            // ---- Clone đếm ngược 10s ----
             if (state.clone && state.clone.hp > 0) {
-                if (state.cloneLastHitTime > 0) {
-                    const timeSinceLastHit = state.gameTime - state.cloneLastHitTime;
-                    if (timeSinceLastHit >= CLONE_LIFETIME) {
-                        state.clone.hp = 0;
-                        state.clone = null;
-                    }
+                state.cloneTimer -= deltaSec;
+                if (state.cloneTimer <= 0) {
+                    state.clone.hp = 0;
+                    state.clone = null;
                 }
             }
 
@@ -600,7 +591,7 @@
                 const dist = Math.hypot(state.killer.x - state.clone.x, state.killer.y - state.clone.y);
                 if (dist < (KILLER_SIZE/2 + CLONE_SIZE/2)) {
                     state.clone.hp = Math.max(0, state.clone.hp - cloneDamagePerHit);
-                    state.cloneLastHitTime = state.gameTime;
+                    state.cloneTimer = CLONE_LIFETIME; // Reset đếm ngược khi bị đánh
                     const angle = Math.atan2(state.killer.y - state.clone.y, state.killer.x - state.clone.x);
                     state.killer.x += Math.cos(angle) * 20;
                     state.killer.y += Math.sin(angle) * 20;
@@ -663,11 +654,16 @@
                 ctx.shadowBlur = 0;
                 ctx.fillStyle = '#ffffff';
                 ctx.font = `bold ${Math.max(11, CLONE_SIZE * 0.5)}px monospace`;
-                if (state.cloneLastHitTime > 0 && state.clone.hp > 0) {
-                    const timeLeft = Math.max(0, CLONE_LIFETIME - (state.gameTime - state.cloneLastHitTime));
-                    ctx.fillText('⏱' + Math.ceil(timeLeft) + 's', state.clone.x - 22, state.clone.y - 20);
+                
+                // Hiển thị đếm ngược 10s của clone
+                if (state.cloneTimer > 0 && state.clone.hp > 0) {
+                    const timeLeft = Math.ceil(state.cloneTimer);
+                    ctx.fillStyle = timeLeft <= 3 ? '#ff6b6b' : '#ffffff';
+                    ctx.fillText('⏱' + timeLeft + 's', state.clone.x - 22, state.clone.y - 20);
                 }
+                ctx.fillStyle = '#ffffff';
                 ctx.fillText('🔄' + Math.floor(state.clone.hp), state.clone.x - 20, state.clone.y + 20);
+                
                 ctx.fillStyle = '#2a405b';
                 ctx.fillRect(state.clone.x - CLONE_SIZE/2, state.clone.y - CLONE_SIZE/2 - 6, CLONE_SIZE, 4);
                 ctx.fillStyle = hpPercent > 0.3 ? '#30d158' : '#ff6b6b';
@@ -763,7 +759,6 @@
             ctx.textAlign = 'left';
         }
 
-        // Mouse tracking
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -774,7 +769,6 @@
             mouseY = Math.min(canvas.height, Math.max(0, mouseY));
         });
 
-        // Game loop
         function gameLoop(timestamp) {
             if (!state.lastTimestamp) state.lastTimestamp = timestamp;
             const deltaMs = Math.min(50, timestamp - state.lastTimestamp);
@@ -795,7 +789,6 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Keyboard
         document.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
             if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
@@ -837,7 +830,6 @@
 
         document.getElementById('resetBtn').addEventListener('click', resetGame);
 
-        // Khởi động
         resetGame();
         requestAnimationFrame(gameLoop);
     })();
